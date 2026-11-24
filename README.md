@@ -1,106 +1,106 @@
 # RTSP via WebSocket Demo 🎥⚡
 
-Aplikasi web modern, ringan, dan hemat bandwidth untuk menampilkan live video stream dari kamera CCTV / IP Cam / DVR (berprotokol **RTSP**) langsung ke web browser menggunakan **WebSocket + JSMpeg (MPEG1)**.
+A modern, lightweight, and bandwidth-efficient web application designed to stream live video feeds from CCTV / IP Cameras / DVRs (**RTSP protocol**) directly to web browsers using **WebSocket + JSMpeg (MPEG1)**.
 
 ---
 
-## ✨ Fitur Utama
+## ✨ Key Features
 
-- **Ultra Low Latency (< 0.5 detik)**: Menggunakan streaming binary WebSocket dan JSMpeg canvas rendering di sisi browser, jauh lebih cepat dibanding HLS yang memiliki delay 5-15 detik.
-- **On-Demand Streaming (Hemat Bandwidth & CPU)**: 
-  - Stream RTSP dan proses transcode FFmpeg **hanya berjalan saat ada penonton** yang membuka web.
-  - Saat semua penonton menutup browser/tab, proses FFmpeg otomatis di-kill setelah waktu timeout tertentu (`STREAM_TIMEOUT_SEC`).
-- **Auto Reconnect**: 
-  - Jika koneksi RTSP kamera sempat drop, server otomatis melakukan reconnect.
-  - Jika koneksi Wi-Fi/jaringan client drop, browser otomatis mencoba reconnect kembali tanpa perlu refresh halaman.
-- **Koneksi RTSP via TCP**: Mencegah packet loss, frame pecah/corrupt (glitch pixelated) yang sering terjadi pada koneksi UDP.
-- **Unified Single Port**: Web server (HTTP) dan Video stream (WebSocket) berjalan di satu port yang sama (default `3000`), sehingga mudah di-expose, port-forwarding, atau di-tunneling (Ngrok / Cloudflare Tunnel / VPS).
-- **Zero External Dependency**: Menggunakan `@ffmpeg-installer/ffmpeg` bawaan npm, sehingga tidak perlu menginstall FFmpeg secara manual di sistem operasi.
+- **Ultra Low Latency (< 0.5s)**: Delivers video frames via binary WebSockets rendered directly on an HTML5 `<canvas>` using JSMpeg, vastly outperforming traditional HLS streams (which suffer from 5–15 seconds of delay).
+- **On-Demand Streaming (Bandwidth & CPU Saver)**: 
+  - The RTSP connection and FFmpeg transcoding process **only run when active viewers are connected**.
+  - When all viewers close their browser/tab, FFmpeg is automatically terminated after a configurable idle timeout (`STREAM_TIMEOUT_SEC`).
+- **Auto Reconnect & Resilience**: 
+  - If the camera/DVR connection drops, the backend automatically attempts to reconnect.
+  - If the client's Wi-Fi/network disconnects, the browser player automatically reconnects without requiring a manual page refresh.
+- **RTSP over TCP**: Eliminates packet loss, artifacts, and pixelation/gray screens frequently caused by UDP transmission over busy networks.
+- **Unified Single Port**: Web server (HTTP) and Video stream (WebSocket) operate on the same port (default `3000`), simplifying reverse proxies, port forwarding, and tunneling (e.g., Cloudflare Tunnel, Ngrok, or VPS).
+- **Zero External Dependencies**: Powered by `@ffmpeg-installer/ffmpeg`, eliminating the need to manually install FFmpeg on the host operating system.
 
 ---
 
-## 📁 Struktur Direktori
+## 📁 Project Structure
 
 ```text
 ├── public/
 │   └── index.html      # Frontend HTML5 + JSMpeg Canvas Player
-├── .env.example        # Template konfigurasi environment
-├── .gitignore          # Mengabaikan file sensitif (.env, node_modules)
-├── package.json        # Dependensi proyek
-├── README.md           # Dokumentasi lengkap
-└── server.js           # Server backend Node.js (Express + WebSocket + FFmpeg)
+├── .env.example        # Environment variable template
+├── .gitignore          # Ignored sensitive files (.env, node_modules)
+├── package.json        # Project metadata and dependencies
+├── README.md           # Complete documentation
+└── server.js           # Node.js backend (Express + WebSocket + FFmpeg)
 ```
 
 ---
 
-## 🚀 Panduan Memulai
+## 🚀 Getting Started
 
-### 1. Prasyarat
-- [Node.js](https://nodejs.org/) versi 18 atau yang lebih baru.
-- Kamera IP / DVR yang mendukung protokol RTSP dan berada dalam jaringan yang dapat diakses oleh komputer server.
+### 1. Prerequisites
+- [Node.js](https://nodejs.org/) (v18 or higher recommended).
+- An IP Camera / DVR with RTSP enabled and accessible from the server machine.
 
-### 2. Instalasi
-Clone repository ini dan masuk ke direktori proyek:
+### 2. Installation
+Clone the repository and navigate into the project directory:
 ```bash
 git clone https://github.com/RendyPakeY/RTSP-via-WebSocket-Demo.git
 cd RTSP-via-WebSocket-Demo
 ```
 
-Install dependensi:
+Install the dependencies:
 ```bash
 npm install
 ```
 
-### 3. Konfigurasi Environment (`.env`)
-Salin file `.env.example` menjadi `.env`:
+### 3. Environment Configuration (`.env`)
+Create a `.env` file based on the provided template:
 ```bash
 cp .env.example .env
 ```
-*(Di Windows PowerShell: `Copy-Item .env.example .env`)*
+*(On Windows PowerShell: `Copy-Item .env.example .env`)*
 
-Buka file `.env` dan sesuaikan parameter berikut:
+Open `.env` and configure your settings:
 ```env
-# URL RTSP Kamera / DVR Anda
+# RTSP URL of your Camera / DVR
 RTSP_URL=rtsp://username:password@192.168.1.15:554/cam/realmonitor?channel=1&subtype=0
 
-# Port Web Server & WebSocket Stream
+# Unified Port for Web & WebSocket Stream
 PORT=3000
 
-# Waktu tunggu (detik) mematikan RTSP saat semua client keluar
+# Idle timeout (in seconds) before stopping FFmpeg when no viewers are connected
 STREAM_TIMEOUT_SEC=10
 ```
 
-### 4. Menjalankan Aplikasi
-Jalankan server dengan perintah:
+### 4. Running the Server
+Start the server:
 ```bash
 npm start
 ```
 
-Buka browser Anda dan akses:
+Open your browser and navigate to:
 👉 **`http://localhost:3000`**
 
 ---
 
-## 🌐 Akses dari Jaringan Lain (Wi-Fi / LAN)
+## 🌐 Local Network & Remote Access (Wi-Fi / LAN)
 
-Karena server mendengarkan di `0.0.0.0`, perangkat lain di jaringan Wi-Fi/LAN yang sama dapat langsung mengakses streaming melalui IP lokal komputer host:
+Because the server binds to `0.0.0.0`, any device connected to the same local network (Wi-Fi/LAN) can access the live feed using the server's local IP address:
 
-1. Cek IPv4 komputer server Anda (`ipconfig` di Windows atau `ifconfig` di Linux/Mac).
-2. Akses dari browser HP / laptop lain di jaringan yang sama:
+1. Find the server's local IPv4 address (`ipconfig` on Windows or `ifconfig` / `ip a` on Linux/macOS).
+2. Open a browser on another device (phone, laptop, tablet) and access:
    ```text
-   http://<IP_KOMPUTER_SERVER>:3000
+   http://<SERVER_IP>:3000
    ```
-3. Pastikan port `3000` diizinkan pada Firewall sistem operasi Anda.
+3. Make sure inbound traffic on port `3000` is allowed in your operating system's firewall settings.
 
 ---
 
-## 🛠️ Stack Teknologi
+## 🛠️ Tech Stack
 
 - **Backend**: [Node.js](https://nodejs.org/), [Express.js](https://expressjs.com/), [ws (WebSocket)](https://github.com/websockets/ws)
-- **Converter / Transcoding**: [FFmpeg](https://ffmpeg.org/) via `@ffmpeg-installer/ffmpeg`
-- **Frontend Player**: [JSMpeg](https://github.com/phoboslab/jsmpeg) (JavaScript MPEG1 Video Decoder ke HTML5 Canvas)
+- **Converter / Transcoder**: [FFmpeg](https://ffmpeg.org/) via `@ffmpeg-installer/ffmpeg`
+- **Frontend Player**: [JSMpeg](https://github.com/phoboslab/jsmpeg) (JavaScript MPEG1 Video Decoder to HTML5 Canvas)
 
 ---
 
-## 📄 Lisensi
-Proyek ini dibuat untuk tujuan demonstrasi dan eksperimen streaming CCTV/DVR berlatensi rendah ke web. Silakan gunakan dan kembangkan sesuai kebutuhan.
+## 📄 License
+This project is open-source and intended for demonstration and development purposes. Feel free to use and modify it according to your needs.
