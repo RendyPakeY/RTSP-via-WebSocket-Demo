@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RTSP Live Stream Player</title>
+  <script src="https://cdn.jsdelivr.net/gh/phoboslab/jsmpeg@master/jsmpeg.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    body {
+      background-color: #0f172a;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 15px;
+    }
+    .container {
+      max-width: 960px;
+      width: 100%;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    h1 {
+      font-size: 1.8rem;
+      color: #38bdf8;
+      margin-bottom: 6px;
+    }
+    p {
+      color: #94a3b8;
+      font-size: 0.95rem;
+    }
+    .card {
+      background-color: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    }
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      aspect-ratio: 16 / 9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain;
+    }
+    .info-bar {
+      margin-top: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    .badge-connecting { background: #b45309; color: #fef3c7; }
+    .badge-live { background: #065f46; color: #6ee7b7; }
+    .badge-error { background: #991b1b; color: #fca5a5; }
+    code {
+      background: #0f172a;
+      padding: 3px 6px;
+      border-radius: 4px;
+      color: #38bdf8;
+      font-family: monospace;
+    }
+    #errorDetails {
+      margin-top: 10px;
+      padding: 10px;
+      background: #450a0a;
+      border: 1px solid #7f1d1d;
+      border-radius: 6px;
+      color: #fca5a5;
+      font-size: 0.85rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>RTSP Live Camera Monitor</h1>
+      <p>Node.js Backend Converter &bull; Auto-Reconnect &bull; Low Bandwidth</p>
+    </header>
+
+    <div class="card">
+      <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+        <span id="statusBadge" class="badge badge-connecting">Menghubungkan ke Stream...</span>
+      </div>
+
+      <div class="video-wrapper">
+        <canvas id="videoCanvas"></canvas>
+      </div>
+
+      <div id="errorDetails"></div>
+
+      <div class="info-bar">
+        <div>RTSP Source: <code id="rtspTarget">Loading...</code></div>
+        <div>WebSocket Target: <code id="wsTarget">Loading...</code></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('videoCanvas');
+    const statusBadge = document.getElementById('statusBadge');
+    const rtspTarget = document.getElementById('rtspTarget');
+    const wsTarget = document.getElementById('wsTarget');
+    const errorDetails = document.getElementById('errorDetails');
+
+    let player = null;
+    let reconnectTimeout = null;
+
+    function setStatus(text, type) {
+      statusBadge.innerText = text;
+      statusBadge.className = "badge " + (
+        type === 'live' ? 'badge-live' :
+        type === 'error' ? 'badge-error' : 'badge-connecting'
+      );
+    }
+
+    function initPlayer(wsUrl) {
+      if (player) {
+        try { player.destroy(); } catch (e) {}
+        player = null;
+      }
+
+      setStatus("Menghubungkan ke Stream...", "connecting");
+      errorDetails.style.display = "none";
+
+      try {
+        player = new JSMpeg.Player(wsUrl, {
+          canvas: canvas,
+          autoplay: true,
+          audio: false,
+          reconnectInterval: 3, // Otomatis reconnect setiap 3 detik jika terputus
+          onSourceEstablished: () => {
+            setStatus("● LIVE STREAMING", "live");
+            errorDetails.style.display = "none";
+          },
+          onSourceCompleted: () => {
+            setStatus("Stream Terputus, mencoba reconnect...", "error");
+          }
+        });
+      } catch (err) {
+        setStatus("Gagal memuat player", "error");
+        errorDetails.style.display = "block";
+        errorDetails.innerText = err.message;
+      }
+    }
+
+    // Ambil konfigurasi server
+    fetch('/api/config')
+      .then(res => {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(config => {
+        rtspTarget.innerText = config.rtspUrl;
+
+        const host = window.location.host;
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsPath = config.wsPath || '/stream';
+        const wsUrl = `${wsProtocol}//${host}${wsPath}`;
+        
+        wsTarget.innerText = wsUrl;
+
+        initPlayer(wsUrl);
+      })
+      .catch(err => {
+        console.error('Fetch error:', err);
+        setStatus("Koneksi ke backend gagal", "error");
+        errorDetails.style.display = "block";
+        errorDetails.innerText = "Gagal mengambil konfigurasi: " + err.message;
+      });
+  </script>
+</body>
+</html>
